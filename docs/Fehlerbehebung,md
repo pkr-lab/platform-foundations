@@ -1,0 +1,121 @@
+# Troubleshooting
+
+Diese Seite sammelt typische Fehler im Lab und wie man sie behebt. Bei einem neuen Problem gilt immer zuerst:
+
+```bash
+kubectl get pods -A
+kubectl describe pod <pod-name> -n <namespace>
+kubectl logs <pod-name> -n <namespace> --previous
+kubectl get events -n <namespace> --sort-by=.lastTimestamp
+```
+
+## IPv6-Probleme mit kind und Podman
+
+### Symptome
+
+- `kind create cluster` bricht ab oder hängt beim Start der Control Plane
+- Fehlermeldungen mit IPv6-Adressen (z. B. `fc00:…`, `::1`) beim Erstellen des Netzwerks oder des Nodes
+- Pods können keine Images ziehen oder externe Adressen nicht erreichen, obwohl das Netzwerk in WSL funktioniert
+- `kubectl` erreicht den API-Server nicht zuverlässig
+
+### Ursache
+
+kind legt beim ersten Start ein Podman-Netzwerk mit dem Namen `kind` an. Je nach Umgebung bekommt dieses Netzwerk zusätzlich ein IPv6-Subnetz. Unter WSL bzw. im Firmennetz funktioniert IPv6 oft nicht vollständig, und Cluster-Komponenten versuchen dann, über IPv6 zu kommunizieren.
+
+### Lösung
+
+1. In der `kind.yaml` den Cluster auf IPv4 festlegen:
+
+   ```yaml
+   kind: Cluster
+   apiVersion: kind.x-k8s.io/v1alpha4
+   networking:
+     ipFamily: ipv4
+   nodes:
+     - role: control-plane
+       ...
+   ```
+
+2. Den bestehenden Cluster löschen, weil die Netzwerk-Einstellung nur beim Erstellen gelesen wird:
+
+   ```bash
+   sudo -E kind delete cluster --name lab
+   ```
+
+3. Das alte Podman-Netzwerk `kind` löschen. Es enthält noch die IPv6-Konfiguration und wird sonst wiederverwendet:
+
+   ```bash
+   sudo podman network ls
+   sudo podman network rm kind
+   ```
+
+   Falls `network is being used` gemeldet wird, laufen noch Container im Netzwerk. Diese mit `sudo podman ps -a --filter network=kind` finden und mit `sudo podman rm -f <name>` entfernen.
+
+4. Das Netzwerk neu anlegen, diesmal ohne IPv6:
+
+   ```bash
+   sudo podman network create kind
+   sudo podman network inspect kind | grep -i ipv6
+   ```
+
+   Die Ausgabe sollte `"ipv6_enabled": false` zeigen.
+
+5. Den Cluster neu erstellen und die kubeconfig übernehmen:
+
+   ```bash
+   sudo -E kind create cluster --config kind.yaml
+   sudo kind get kubeconfig --name lab > ~/.kube/config
+   kubectl get nodes -o wide
+   ```
+
+   In der Spalte `INTERNAL-IP` sollte jetzt nur eine IPv4-Adresse stehen.
+
+> Hinweis: Wird der Cluster gelöscht, sind alle darin installierten Ressourcen (Helm-Releases, ArgoCD, Monitoring) weg. Bei GitOps ist das kein Problem: Nach der Neuinstallation von ArgoCD und der Root-Application stellt sich der Zustand aus Git wieder her.
+
+## WSL und Podman
+
+| Symptom | Ursache | Lösung |
+| --- | --- | --- |
+| `podman: command not found` | Podman nicht installiert | `sudo apt update && sudo apt install -y podman` |
+| Warnungen zu `cgroupv2` oder `systemd` | systemd in WSL nicht aktiv | in `/etc/wsl.conf` unter `[boot]` `systemd=true` setzen, in Windows `wsl --shutdown` |
+| Seite im Windows-Browser nicht erreichbar | Port-Weiterleitung von WSL | in WSL mit `curl localhost:<port>` testen, ggf. WSL neu starten |
+| `x509: certificate signed by unknown authority` | Firmen-CA fehlt in WSL | CA als `.crt` nach `/usr/local/share/ca-certificates/` kopieren, `sudo update-ca-certificates` |
+
+## kind
+
+| Symptom | Ursache | Lösung |
+| --- | --- | --- |
+| kind sucht Docker statt Podman | Provider nicht gesetzt | `export KIND_EXPERIMENTAL_PROVIDER=podman`, kind mit `sudo -E` aufrufen |
+| Fehler beim Mounten von `/etc/containerd/certs.d` | Verzeichnis fehlt auf dem Host | `sudo mkdir -p /etc/containerd/certs.d` |
+| `address already in use` für 8080/8443 | anderer Prozess nutzt die Ports | mit `sudo ss -ltnp` den Prozess finden und beenden |
+| `connection refused` bei `kubectl` | kubeconfig fehlt oder Node gestoppt | `sudo podman start lab-control-plane`, danach `sudo kind get kubeconfig --name lab > ~/.kube/config` |
+| `kubectl` braucht `sudo` | kubeconfig gehört root | `sudo chown $USER ~/.kube/config` |
+| Probleme mit IPv6-Adressen | IPv6 im Podman-Netzwerk `kind` | siehe Abschnitt „IPv6-Probleme mit kind und Podman“ |
+
+## Kubernetes allgemein
+
+| Symptom | Erster Befehl |
+| --- | --- |
+| Pod startet nicht | `kubectl describe pod <name> -n <ns>` (Abschnitt Events) |
+| Container stürzt ab | `kubectl logs <pod> -n <ns> --previous` |
+| Service liefert nichts | `kubectl get endpoints <service> -n <ns>` – leer heißt: Selector oder Readiness passt nicht |
+| Ingress liefert 404 | Host-Name und `ingressClassName` prüfen, `kubectl logs -n traefik deploy/traefik` |
+| `Forbidden` | `kubectl auth can-i <verb> <ressource> --as=<identität> -n <ns>` |
+
+## Registries und Artifactory
+
+| Symptom | Ursache | Lösung |
+| --- | --- | --- |
+| `unauthorized` beim Push | keine Schreibrechte oder remote- statt local-Repo | Repo-Namen und Rechte beim Ausbilder klären |
+| `server gave HTTP response to HTTPS client` | lokale Registry ohne TLS | Podman: `--tls-verify=false`, Helm: `--plain-http` |
+| `ImagePullBackOff` mit Artifactory-Image | Pull-Secret fehlt oder im falschen Namespace | `kubectl get secret -n <ns>`, `imagePullSecrets` prüfen |
+| Image aus lokaler Registry nicht gefunden | kind-Node erreicht `localhost:5001` des Hosts nicht | `podman save` + `sudo -E kind load image-archive`, `pullPolicy: Never` |
+
+## ArgoCD
+
+| Symptom | Lösung |
+| --- | --- |
+| `repository not accessible` | Token prüfen, bei Firmen-CA das Zertifikat unter „Settings → Certificates“ hinterlegen |
+| `app path does not exist` | `spec.source.path` muss auf den Ordner mit `Chart.yaml` zeigen |
+| Application erscheint nicht | Application muss im Namespace `argocd` liegen |
+| Änderungen kommen nicht an | „Refresh“ im UI, prüfen, ob auf `targetRevision` gepusht wurde |
