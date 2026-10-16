@@ -14,7 +14,7 @@ Bei uns kommen Container-Images nicht direkt aus dem Internet, sondern über **J
 ## Voraussetzungen
 
 - Modul 01–03 abgeschlossen
-- ein Benutzerkonto für JFrog Artifactory unter `https://dev-repos-prod-web.services.debeka.de/`
+- ein Benutzerkonto für JFrog Artifactory unter `https://<URL>/`
 
 ## Theorie (Kurzüberblick)
 
@@ -44,7 +44,7 @@ Die richtige Adresse musst du dir nicht merken, denn Artifactory zeigt sie dir a
 1. In der Ansicht der Version zeigt Artifactory einen fertigen Befehl zum Herunterladen an, z. B.:
 
    ```text
-   docker pull dev-repos-prod-web.services.debeka.de/<repository>/nginx:stable
+   docker pull dev-repos-prod-web.services.de/<repository>/nginx:stable
    ```
 
 2. Kopiere den Befehl. Wir verwenden Podman statt Docker, ersetze deshalb `docker` durch `podman`.
@@ -52,7 +52,7 @@ Die richtige Adresse musst du dir nicht merken, denn Artifactory zeigt sie dir a
 3. Lade das Image herunter und prüfe, ob es da ist:
 
    ```bash
-   podman pull dev-repos-prod-web.services.debeka.de/<repository>/nginx:stable
+   podman pull dev-repos-prod-web.services.de/<repository>/nginx:stable
    podman images
    ```
 
@@ -65,7 +65,7 @@ Die richtige Adresse musst du dir nicht merken, denn Artifactory zeigt sie dir a
 
    ```yaml
    image:
-     repository: dev-repos-prod-web.services.debeka.de/<repository>/nginx
+     repository: dev-repos-prod-web.services.de/<repository>/nginx
      tag: stable
    ```
 
@@ -81,7 +81,7 @@ Falls die Pods mit `ImagePullBackOff` hängen bleiben, braucht der Cluster eigen
 
 ```bash
 kubectl create secret docker-registry artifactory-pull -n azubi-portal \
-  --docker-server=dev-repos-prod-web.services.debeka.de \
+  --docker-server=dev-repos-prod-web.services.de \
   --docker-username=<technischer-benutzer> \
   --docker-password=<token>
 ```
