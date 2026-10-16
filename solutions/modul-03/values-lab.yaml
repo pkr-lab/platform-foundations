@@ -1,0 +1,4 @@
+replicaCount: 3
+welcomeMessage: "Hallo aus meinem Lab"
+ingress:
+  enabled: true

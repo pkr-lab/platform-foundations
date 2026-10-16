@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: azubi-portal-oci
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: <artifactory-host>/<helm-repo>
+      chart: azubi-portal
+      targetRevision: 0.2.1
+      helm:
+        valueFiles:
+          - $values/gitops/apps/azubi-portal/values-lab.yaml
+        parameters:
+          - name: ingress.host
+            value: azubi-portal-oci.localhost
+    - repoURL: <dein-gitlab-repo-url>
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: azubi-portal-oci
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

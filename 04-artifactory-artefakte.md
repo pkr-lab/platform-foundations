@@ -107,7 +107,7 @@ imagePullSecrets:
 
 - **`unauthorized` beim Pull:** Du bist nicht angemeldet. Führe `podman login dev-repos-prod-web.services.debeka.de` aus.
 - **`manifest unknown`:** Tag oder Image-Name sind falsch. Kopiere den Befehl am besten direkt aus Artifactory, statt ihn abzutippen.
-- **`x509: certificate signed by unknown authority`:** Die Firmen-CA fehlt in WSL (siehe [docs/Troubleshooting.md](./docs/Troubleshooting.md)).
+- **`x509: certificate signed by unknown authority`:** Die Firmen-CA fehlt in WSL (siehe [docs/Fehlerbehebung.md](./docs/Fehlerbehebung.md)).
 - **Image nicht gefunden:** Suche ohne Tag nur nach dem Namen (z. B. `nginx`) und achte auf den Pakettyp **Docker**.
 
 ## Weiterführend

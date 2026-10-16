@@ -5,8 +5,27 @@ image:
   tag: stable
   pullPolicy: IfNotPresent
 
+containerPort: 80
+
+imagePullSecrets: []
+
 service:
   type: ClusterIP
   port: 80
 
 welcomeMessage: "Willkommen im Azubi-Portal"
+
+htmlFromConfigMap: true
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+ingress:
+  enabled: false
+  className: traefik
+  host: azubi-portal.localhost

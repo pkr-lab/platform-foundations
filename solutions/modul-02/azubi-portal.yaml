@@ -1,0 +1,147 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: azubi-portal
+  labels:
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azubi-portal-config
+  namespace: azubi-portal
+data:
+  WELCOME_MESSAGE: "Hallo im Azubi-Portal"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: azubi-portal-secret
+  namespace: azubi-portal
+type: Opaque
+stringData:
+  PASSWORD: "supergeheim"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azubi-portal-sa
+  namespace: azubi-portal
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: azubi-portal-read-pods
+  namespace: azubi-portal
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: azubi-portal-read-pods-binding
+  namespace: azubi-portal
+subjects:
+  - kind: ServiceAccount
+    name: azubi-portal-sa
+    namespace: azubi-portal
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: azubi-portal-read-pods
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azubi-portal
+  namespace: azubi-portal
+  labels:
+    app: azubi-portal
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: azubi-portal
+  template:
+    metadata:
+      labels:
+        app: azubi-portal
+    spec:
+      serviceAccountName: azubi-portal-sa
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: azubi-portal
+          image: docker.io/nginxinc/nginx-unprivileged:stable
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: azubi-portal-config
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: azubi-portal-secret
+                  key: PASSWORD
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: azubi-portal
+  namespace: azubi-portal
+  labels:
+    app: azubi-portal
+spec:
+  type: ClusterIP
+  selector:
+    app: azubi-portal
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: azubi-portal
+  namespace: azubi-portal
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: azubi-portal.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: azubi-portal
+                port:
+                  number: 80

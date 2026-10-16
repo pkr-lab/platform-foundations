@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: azubi-portal
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: azubi-portal
+      rules:
+        - alert: AzubiPortalPodRestarts
+          expr: increase(kube_pod_container_status_restarts_total{namespace="azubi-portal"}[15m]) > 3
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} startet häufig neu"
+        - alert: AzubiPortalNotAvailable
+          expr: kube_deployment_status_replicas_available{namespace="azubi-portal", deployment="azubi-portal"} < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "azubi-portal hat keine verfügbaren Pods"
+        - alert: AzubiPortalMemoryHigh
+          expr: max by (pod) (container_memory_working_set_bytes{namespace="azubi-portal", container="azubi-portal"}) / max by (pod) (kube_pod_container_resource_limits{namespace="azubi-portal", resource="memory"}) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} nutzt über 90 % seines Memory-Limits"

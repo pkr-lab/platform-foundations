@@ -60,4 +60,4 @@ Durch alle Module zieht sich die Beispiel-App `azubi-portal`: vom einfachen YAML
 | [`solutions/`](./solutions/) | Musterlösungen je Modul |
 | [`docs/`](./docs/) | Dokumentation: Tools, Ports, Troubleshooting, Repo-Struktur, Fehlerbehandlung |
 
-Bei Problemen hilft [docs/Troubleshooting.md](./docs/Troubleshooting.md).
+Bei Problemen hilft [docs/Fehlerbehebung.md](./docs/Fehlerbehebung.md).

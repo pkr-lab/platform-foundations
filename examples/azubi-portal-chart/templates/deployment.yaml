@@ -3,27 +3,54 @@ kind: Deployment
 metadata:
   name: azubi-portal
   labels:
-    app: azubi-portal
+    {{- include "azubi-portal.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: azubi-portal
+      {{- include "azubi-portal.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: azubi-portal
+        {{- include "azubi-portal.labels" . | nindent 8 }}
+      {{- if .Values.htmlFromConfigMap }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: azubi-portal
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
-            - containerPort: 80
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.htmlFromConfigMap }}
           volumeMounts:
             - name: azubi-portal-html
               mountPath: /usr/share/nginx/html
+          {{- end }}
+      {{- if .Values.htmlFromConfigMap }}
       volumes:
         - name: azubi-portal-html
           configMap:
             name: azubi-portal-html
+      {{- end }}

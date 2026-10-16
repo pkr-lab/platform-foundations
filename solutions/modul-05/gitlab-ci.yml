@@ -1,0 +1,36 @@
+stages:
+  - validate
+
+helm-lint:
+  stage: validate
+  image: docker.io/alpine/helm:3.16.4
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - |
+      for chart in gitops/apps/*/; do
+        values="${chart}values-lab.yaml"
+        if [ -f "$values" ]; then
+          helm lint "$chart" -f "$values"
+          helm template ci "$chart" -f "$values" > "rendered-$(basename "$chart").yaml"
+        else
+          helm lint "$chart"
+          helm template ci "$chart" > "rendered-$(basename "$chart").yaml"
+        fi
+      done
+  artifacts:
+    paths:
+      - rendered-*.yaml
+
+kubeconform:
+  stage: validate
+  needs: [helm-lint]
+  image:
+    name: ghcr.io/yannh/kubeconform:v0.6.7
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - /kubeconform -strict -summary -ignore-missing-schemas rendered-*.yaml
