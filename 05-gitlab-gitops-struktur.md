@@ -155,7 +155,7 @@ mkdir -p gitops/cluster/argocd-apps gitops/apps
 
 - Lege eine zweite Umgebung `values-test.yaml` an. Welche Werte würden sich zwischen `lab` und `test` unterscheiden?
 - Schreibe eine GitLab-CI-Pipeline (`.gitlab-ci.yml`), die bei jedem Merge Request `helm lint` und `helm template | kubeconform` ausführt. Tipp: Das Image für die Pipeline kommt natürlich aus dem Artifactory.
-- Variante „Chart aus dem Artifactory“: Lege in Git nur noch die `values-lab.yaml` ab und referenziere das OCI-Chart aus Modul 04. Welche Vor- und Nachteile hat das? (Umsetzung in Modul 06, Bonus.)
+- Variante „Chart aus dem Artifactory“: Lege in Git nur noch die `values-lab.yaml` ab und referenziere ein Chart, das als OCI-Artefakt im Artifactory liegt. Welche Vor- und Nachteile hat das? (Umsetzung in Modul 06, Bonus.)
 
 ## Du bist fertig, wenn …
 
