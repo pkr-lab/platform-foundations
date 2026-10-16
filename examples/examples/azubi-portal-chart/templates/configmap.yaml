@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azubi-portal-html
+data:
+  index.html: |
+    <html>
+      <head>
+        <title>Azubi-Portal</title>
+      </head>
+      <body>
+        <h1>{{ .Values.welcomeMessage }}</h1>
+        <p>Dies ist das statische Azubi-Portal fuer dein Kubernetes-Lab.</p>
+      </body>
+    </html>
