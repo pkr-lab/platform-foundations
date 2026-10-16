@@ -8,7 +8,7 @@ Im Abschlussprojekt setzt du das Gelernte aus den vorherigen Modulen ein, um ein
 
 - ein kleines Anwendungsszenario selbst planen
 - die Anwendung als Helm-Chart modellieren oder ein vorhandenes Chart sauber anpassen
-- Images und Charts über ein Artifactory (oder die lokale Registry) bereitstellen
+- Images über JFrog Artifactory beziehen (Modul 04)
 - den GitOps-Flow mit GitLab und ArgoCD vollständig umsetzen – inklusive Bootstrap per App-of-Apps
 - die wichtigsten Schritte dokumentieren und erklären können
 
@@ -22,7 +22,7 @@ Wähle eine einfache Anwendung (z. B. statische Website, kleiner API-Service, [p
 
 Anforderungen:
 
-- Das Container-Image liegt in einer Registry (Artifactory oder lokale Registry aus Modul 04) mit einem **festen Versions-Tag**.
+- Das Container-Image kommt aus JFrog Artifactory (Modul 04) und hat einen **festen Versions-Tag**.
 - Die Konfiguration liegt in deinem GitOps-Repo, Secrets nur verschlüsselt (Sealed Secrets) oder gar nicht.
 - Das Deployment erfolgt ausschließlich über ArgoCD. Nach dem einmaligen Bootstrap wird **kein** `kubectl apply` mehr ausgeführt (außer `get`/`describe`/`logs` zur Analyse).
 - Die App hat Probes, Ressourcen-Requests/-Limits und läuft nicht als root.
@@ -37,7 +37,7 @@ Anforderungen:
 
 ### Phase 2: Image und Helm-Chart
 
-1. Baue (falls nötig) ein eigenes Image und pushe es mit Versions-Tag in die Registry (Modul 04).
+1. Suche das benötigte Image in Artifactory über **Packages** und notiere Adresse und Tag (Modul 04).
 2. Erstelle ein Helm-Chart oder passe ein bestehendes an.
 3. Lege eine `values-lab.yaml` an.
 4. Teste das Chart lokal **ohne** es zu installieren:
