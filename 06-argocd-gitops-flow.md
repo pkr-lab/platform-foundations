@@ -164,7 +164,7 @@ Warum ist `helm rollback` hier keine gute Idee?
 
 ### Bonus-Aufgaben (für Fortgeschrittene)
 
-- **Chart aus dem Artifactory:** Lege eine zweite Application an, die das OCI-Chart aus Modul 04 nutzt und die Values aus Git holt ([Multiple Sources](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/)). Hinterlege dazu das OCI-Repo in ArgoCD als Helm-Repository mit „Enable OCI“.
+- **Chart aus dem Artifactory:** Lege eine zweite Application an, die ein OCI-Chart aus dem Artifactory nutzt und die Values aus Git holt ([Multiple Sources](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/)). Hinterlege dazu das OCI-Repo in ArgoCD als Helm-Repository mit „Enable OCI“.
 - Installiere den Monitoring-Stack aus Modul 07 als eigene ArgoCD-Application.
 - Lege ein eigenes `AppProject` `lab` an, das nur dein GitLab-Repo und die Namespaces `azubi-portal` und `monitoring` erlaubt.
 

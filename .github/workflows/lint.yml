@@ -1,0 +1,52 @@
+name: lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: "**/*.md"
+
+  yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install yamllint
+      - run: yamllint .
+
+  kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+      - name: Install kubeconform
+        run: |
+          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C /usr/local/bin kubeconform
+      - run: helm lint examples/azubi-portal-chart
+      - run: helm template ci examples/azubi-portal-chart --set ingress.enabled=true | kubeconform -strict -summary
+      - run: |
+          for f in solutions/modul-03/values-lab.yaml solutions/modul-04/values-lab.yaml; do
+            helm template ci examples/azubi-portal-chart -f "$f" | kubeconform -strict -summary
+          done
+      - run: kubeconform -strict -summary -ignore-missing-schemas kubernetes-headlamp.yaml solutions/modul-01 solutions/modul-02/azubi-portal.yaml solutions/modul-02/np-test.yaml solutions/modul-06 solutions/modul-07 solutions/modul-08
+
+  links:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config .lychee.toml --no-progress "**/*.md"
+          fail: false

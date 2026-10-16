@@ -80,7 +80,7 @@ podman stop web-test
 
 kind ist ursprünglich für Docker gebaut. Mit Podman sind ein paar Vorbereitungen nötig:
 
-1. **Cluster erstellen.** 
+1. **Cluster erstellen.**
 
    ```bash
    cd ~/platform-foundations
