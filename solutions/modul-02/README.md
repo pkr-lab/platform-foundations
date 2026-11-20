@@ -6,13 +6,22 @@
 | [np-test.yaml](./np-test.yaml) | Aufgabe 5: Web-App mit NetworkPolicy |
 | [traefik-values.yaml](./traefik-values.yaml) | Aufgabe 6: Werte für den Ingress-Controller Traefik |
 
-Das Secret steht hier nur zu Übungszwecken im Klartext in der Datei. In einem echten Repo gehört es dort nicht hin (siehe Modul 05).
+Das Secret steht hier nur zu Übungszwecken im Klartext in der Datei. In einem echten Repo gehört es dort nicht hin (siehe Modul 06).
+
+## Traefik installieren
+
+```bash
+helm repo add artifactory https://<artifactory-host>/artifactory/api/helm/<helm-repo>
+helm repo update
+helm search repo artifactory/traefik --versions | head -n 5
+helm install traefik artifactory/traefik --version <chart-version> -n traefik --create-namespace -f traefik-values.yaml
+```
 
 ## Erwartete Ergebnisse
 
 - `kubectl auth can-i list pods …` → `yes`, `delete pods` → `no`, `get secrets` → `no`
 - Mit dem offiziellen `nginx`-Image und `runAsNonRoot: true` meldet der Pod `CreateContainerConfigError` („container has runAsNonRoot and image will run as root“).
-- Nach der NetworkPolicy antwortet `webapp` nur noch dem Pod `client`. `fremd` läuft in einen Timeout, bis er das Label `role=client` bekommt.
+- Vor der Policy antworten beide Pods mit der Nginx-Startseite. Nach der NetworkPolicy antwortet `webapp` nur noch dem Pod `client`. `fremd` läuft in einen Timeout (`curl: (28)`), bis er das Label `role=client` bekommt.
 
 ## Traefik-Werte erklärt
 

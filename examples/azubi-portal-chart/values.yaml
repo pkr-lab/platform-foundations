@@ -1,13 +1,24 @@
 replicaCount: 2
 
 image:
-  repository: docker.io/library/nginx
-  tag: stable
+  repository: docker.io/nginxinc/nginx-unprivileged
+  tag: "1.28.0"
   pullPolicy: IfNotPresent
 
-containerPort: 80
+containerPort: 8080
 
 imagePullSecrets: []
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 
 service:
   type: ClusterIP
@@ -16,6 +27,8 @@ service:
 welcomeMessage: "Willkommen im Azubi-Portal"
 
 htmlFromConfigMap: true
+
+existingSecret: ""
 
 resources:
   requests:

@@ -1,4 +1,5 @@
 *.secret.yaml
+*.backup.yaml
 *.tar
 *.tgz
 .env

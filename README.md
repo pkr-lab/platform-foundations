@@ -2,7 +2,7 @@
 
 ## Überblick
 
-Dieses Projekt enthält ein Azubi-Lab für einen Ausbildungseinsatz im Bereich ZCPM / [Kubernetes-Cluster-Administration](https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/) mit Fokus auf [Infrastructure as Code (IaC)](https://learn.microsoft.com/en-us/devops/deliver/what-is-infrastructure-as-code), Artefakt-Management und [GitOps](https://opengitops.dev/).
+Dieses Projekt enthält ein Azubi-Lab für einen Ausbildungseinsatz im Bereich ZCPM / [Kubernetes-Cluster-Administration](https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/) mit Fokus auf Container, [Infrastructure as Code (IaC)](https://learn.microsoft.com/en-us/devops/deliver/what-is-infrastructure-as-code), Artefakt-Management mit JFrog Artifactory und [GitOps](https://opengitops.dev/).
 
 Das Lab ist modular aufgebaut. Jedes Modul besteht aus:
 
@@ -14,24 +14,29 @@ Das Lab ist modular aufgebaut. Jedes Modul besteht aus:
 
 Die Module bauen aufeinander auf, haben aber keine feste Zeitplanung. Tempo und Reihenfolge lassen sich an den Einsatz anpassen.
 
+## Wichtig: Alles kommt über das Artifactory
+
+Im Firmennetz gibt es nur einen Weg zu Container-Images und Helm-Charts: das hauseigene **JFrog Artifactory**. Das Lab ist darauf ausgelegt – vom ersten `podman pull` in Modul 01 bis zum eigenen Image in Modul 05. Wie das funktioniert und welche Platzhalter (z. B. `<artifactory-host>`, `<docker-remote-repo>`) du durch eure Werte ersetzen musst, steht in [docs/Artifactory.md](./docs/Artifactory.md).
+
 ## Lernziele
 
 Nach Abschluss aller Module soll der Azubi:
 
 - Kubernetes-Grundlagen verstehen (Pods, Deployments, Services, Namespaces, Ingress)
-- einen lokalen `kind`-Cluster unter WSL mit Podman betreiben können
+- einen lokalen `kind`-Cluster unter WSL mit rootless Podman betreiben können
+- mit JFrog Artifactory sicher umgehen: Images und Charts finden, beziehen, bewerten und eigene Artefakte veröffentlichen
+- eigene Container-Images bauen, die als normaler Benutzer laufen
 - Anwendungen per YAML und Helm deployen, aktualisieren und absichern können
-- erklären können, was ein Artifactory ist, und Images sowie Helm-Charts darüber bereitstellen
 - einen GitOps-Workflow mit GitLab und ArgoCD aufsetzen und nutzen können
 - grundlegende Monitoring- und Betriebsaufgaben durchführen können
 
 ## Voraussetzungen
 
-- WSL 2 (Ubuntu) ist installiert und funktionsfähig
+- WSL 2 mit Ubuntu 24.04 ist installiert und funktionsfähig
 - Basis-Kenntnisse im Umgang mit der Shell (ls, cd, mkdir, etc.)
 - Git-Basics (clone, commit, push) sind bekannt oder können parallel gelernt werden
+- ein Benutzerkonto für das JFrog Artifactory und die Werte für die Platzhalter aus [docs/Artifactory.md](./docs/Artifactory.md#platzhalter)
 - Zugriff auf eine GitLab-Instanz
-- optional: Zugang zum Firmen-Artifactory (Modul 04 hat eine lokale Alternative)
 
 Benötigte Tools und Versionen: [docs/Tools-und-Versionen.md](./docs/Tools-und-Versionen.md)
 
@@ -42,11 +47,12 @@ Empfohlene Reihenfolge:
 1. [Modul 01 – Lab-Umgebung & Container/Kubernetes-Grundlagen](./01-grundlagen.md)
 2. [Modul 02 – Manuelle Deployments & Basis-Security](./02-deployments-security.md)
 3. [Modul 03 – Helm-Grundlagen](./03-helm-grundlagen.md)
-4. [Modul 04 – Artifactory & Artefakt-Management](./04-artifactory-artefakte.md)
-5. [Modul 05 – GitLab & GitOps-Struktur](./05-gitlab-gitops-struktur.md)
-6. [Modul 06 – ArgoCD & GitOps-Flow](./06-argocd-gitops-flow.md)
-7. [Modul 07 – Monitoring & Betrieb](./07-monitoring-betrieb.md)
-8. [Modul 08 – Abschlussprojekt (GitOps-Fokus)](./08-abschlussprojekt.md)
+4. [Modul 04 – JFrog Artifactory & Artefakt-Management](./04-artifactory-artefakte.md)
+5. [Modul 05 – Container-Images bauen](./05-container-images.md)
+6. [Modul 06 – GitLab & GitOps-Struktur](./06-gitlab-gitops-struktur.md)
+7. [Modul 07 – ArgoCD & GitOps-Flow](./07-argocd-gitops-flow.md)
+8. [Modul 08 – Monitoring & Betrieb](./08-monitoring-betrieb.md)
+9. [Modul 09 – Abschlussprojekt (GitOps-Fokus)](./09-abschlussprojekt.md)
 
 Durch alle Module zieht sich die Beispiel-App `azubi-portal`: vom einfachen YAML über ein Helm-Chart und ein eigenes Image im Artifactory bis zur von ArgoCD verwalteten Anwendung.
 
@@ -54,10 +60,10 @@ Durch alle Module zieht sich die Beispiel-App `azubi-portal`: vom einfachen YAML
 
 | Pfad | Inhalt |
 | --- | --- |
-| [`kind.yaml`](./kind.yaml) | lokaler kind-Cluster `lab` mit Zertifikats-Mounts und Port-Mappings 8080/8443 ([Doku](./docs/kind-Konfiguration.md)) |
+| [`kind.yaml`](./kind.yaml) | lokaler kind-Cluster `lab` mit Zertifikats- und Registry-Mirror-Mounts und Port-Mappings 8080/8443 ([Doku](./docs/kind-Konfiguration.md)) |
 | [`examples/azubi-portal-chart/`](./examples/azubi-portal-chart/) | Referenz-Helm-Chart ([Doku](./docs/azubi-portal-chart.md)) |
 | [`kubernetes-headlamp.yaml`](./kubernetes-headlamp.yaml) | optionale Cluster-Oberfläche Headlamp ([Doku](./docs/Headlamp.md)) |
 | [`solutions/`](./solutions/) | Musterlösungen je Modul |
-| [`docs/`](./docs/) | Dokumentation: Tools, Ports, Troubleshooting, Repo-Struktur, Fehlerbehandlung |
+| [`docs/`](./docs/) | Dokumentation: Artifactory, Tools, Ports, kind, Chart, Fehlerbehebung, Repo-Struktur |
 
 Bei Problemen hilft [docs/Fehlerbehebung.md](./docs/Fehlerbehebung.md).

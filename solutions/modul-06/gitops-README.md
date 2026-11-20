@@ -15,8 +15,9 @@
 
 ## Artefakte
 
-- Images: `<artifactory-host>/<docker-push-repo>/<app>:<version>`
-- Charts: `oci://<artifactory-host>/<helm-repo>/<app>`
+- eigene Images: `<artifactory-host>/<docker-local-repo>/<app>:<version>`
+- eigene Charts: `oci://<artifactory-host>/<helm-oci-repo>/<app>`
+- öffentliche Charts: `https://<artifactory-host>/artifactory/api/helm/<helm-repo>`
 
 ## Workflow
 
@@ -29,5 +30,6 @@
 ## Regeln
 
 - keine Klartext-Secrets, nur `SealedSecret`
-- keine `latest`-Tags
+- keine `latest`- oder `stable`-Tags, nur feste Versionen
+- Images nur aus dem Artifactory
 - kein direktes `kubectl apply` auf Ressourcen, die ArgoCD verwaltet

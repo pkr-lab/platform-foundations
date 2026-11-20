@@ -6,15 +6,17 @@ metadata:
 spec:
   project: default
   sources:
-    - repoURL: <artifactory-host>/<helm-repo>
+    - repoURL: <artifactory-host>/<helm-oci-repo>
       chart: azubi-portal
-      targetRevision: 0.2.1
+      targetRevision: 0.3.1
       helm:
         valueFiles:
           - $values/gitops/apps/azubi-portal/values-lab.yaml
         parameters:
           - name: ingress.host
             value: azubi-portal-oci.localhost
+          - name: existingSecret
+            value: ""
     - repoURL: <dein-gitlab-repo-url>
       targetRevision: main
       ref: values

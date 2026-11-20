@@ -2,5 +2,5 @@ apiVersion: v2
 name: azubi-portal
 description: Statisches Nginx-basiertes Portal für das Azubi-Kubernetes-Lab
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "1.0.0"

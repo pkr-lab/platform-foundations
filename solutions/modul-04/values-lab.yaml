@@ -1,8 +1,8 @@
-replicaCount: 2
+replicaCount: 3
 welcomeMessage: "Hallo aus meinem Lab"
 image:
-  repository: dev-repos-prod-web.services.debeka.de/<repository>/nginx
-  tag: stable
+  repository: <artifactory-host>/<docker-remote-repo>/nginxinc/nginx-unprivileged
+  tag: "1.28.0"
 imagePullSecrets:
   - name: artifactory-pull
 ingress:

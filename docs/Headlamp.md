@@ -1,6 +1,6 @@
 # Headlamp (`kubernetes-headlamp.yaml`)
 
-Die Datei [`kubernetes-headlamp.yaml`](../kubernetes-headlamp.yaml) installiert die Web-Oberfläche [Headlamp](https://headlamp.dev/) im Namespace `kube-system`. Sie wird optional in Modul 07 verwendet.
+Die Datei [`kubernetes-headlamp.yaml`](../kubernetes-headlamp.yaml) installiert die Web-Oberfläche [Headlamp](https://headlamp.dev/) im Namespace `kube-system`. Sie wird optional in Modul 08 verwendet.
 
 ## Ressourcen
 
@@ -10,7 +10,7 @@ Die Datei [`kubernetes-headlamp.yaml`](../kubernetes-headlamp.yaml) installiert 
 | ClusterRoleBinding | `headlamp-admin` | gibt dem ServiceAccount die ClusterRole `cluster-admin` |
 | Secret (`service-account-token`) | `headlamp-admin` | langlebiges Token für den Login im UI |
 | Service | `headlamp` | Port 80 → Container-Port 4466 |
-| Deployment | `headlamp` | ein Pod mit `ghcr.io/headlamp-k8s/headlamp`, fester Versions-Tag, läuft mit `serviceAccountName: headlamp-admin` |
+| Deployment | `headlamp` | ein Pod mit `ghcr.io/headlamp-k8s/headlamp`, fester Versions-Tag, läuft mit `serviceAccountName: headlamp-admin`; das Image kommt über den Registry-Mirror für ghcr.io aus dem Artifactory |
 
 ## Benutzung
 

@@ -1,4 +1,4 @@
-# Modul 06 – ArgoCD & GitOps-Flow
+# Modul 07 – ArgoCD & GitOps-Flow
 
 ## Kurzbeschreibung
 
@@ -14,8 +14,8 @@ In diesem Modul setzt du ArgoCD in deinem lokalen Cluster auf und verbindest es 
 
 ## Voraussetzungen
 
-- Modul 01–05 abgeschlossen
-- GitLab-Repo mit der Struktur aus Modul 05 (`gitops/apps/azubi-portal`)
+- Modul 01–06 abgeschlossen
+- GitLab-Repo mit der Struktur aus Modul 06 (`gitops/apps/azubi-portal`)
 
 ## Theorie (Kurzüberblick)
 
@@ -30,7 +30,7 @@ In diesem Modul setzt du ArgoCD in deinem lokalen Cluster auf und verbindest es 
 
 Der zentrale Gedanke: „Git ist Source of Truth“. Direkte Änderungen im Cluster gelten als **Drift**.
 
-Wichtig für Helm: ArgoCD rendert das Chart selbst (wie `helm template`) und wendet die Manifeste an. Das Release taucht deshalb **nicht** in `helm list` auf.
+Wichtig für Helm: ArgoCD rendert das Chart selbst (wie `helm template`) und wendet die Manifeste an. Das Release taucht deshalb **nicht** in `helm list` auf. ArgoCD selbst installierst du dagegen mit Helm – es erscheint in `helm list -n argocd`.
 
 ## Aufgaben
 
@@ -38,21 +38,23 @@ Wichtig für Helm: ArgoCD rendert das Chart selbst (wie `helm template`) und wen
 
 **Ziel:** ArgoCD im `kind`-Cluster bereitstellen.
 
-1. Entferne das manuell installierte Helm-Release aus Modul 03, damit ArgoCD die App übernehmen kann:
+1. Entferne das manuell installierte Helm-Release aus Modul 03 und das von Hand angelegte Pull-Secret aus Modul 04, damit ArgoCD die App übernehmen kann. Das Pull-Secret kommt ab jetzt als `SealedSecret` aus Git (Modul 06):
 
    ```bash
    helm uninstall azubi-portal -n azubi-portal
+   kubectl delete secret artifactory-pull -n azubi-portal
    ```
 
-2. Installiere ArgoCD aus den offiziellen Manifests in den Namespace `argocd`:
+2. Installiere ArgoCD mit dem Helm-Chart `argo-cd` aus dem Artifactory in den Namespace `argocd`. Dex (Single Sign-on) brauchst du im Lab nicht:
 
    ```bash
-   kubectl create namespace argocd
-   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+   helm search repo artifactory/argo-cd --versions | head -n 5
+   helm install argocd artifactory/argo-cd --version <chart-version> -n argocd --create-namespace \
+     --set dex.enabled=false
    kubectl get pods -n argocd -w
    ```
 
-   Hinweis: In der Firma kommen die ArgoCD-Images idealerweise über das Artifactory (Modul 04). Wenn der Download von `quay.io` blockiert ist, frag deinen Ausbilder nach dem passenden Mirror.
+   Die ArgoCD-Images stehen im Chart mit ihren Original-Adressen (z. B. `quay.io/argoproj/argocd`) und kommen über den Registry-Mirror aus dem Artifactory. Hängt ein Pod in `ImagePullBackOff`, zeigt `kubectl describe pod` die Registry. Gibt es für sie keinen Mirror, frag deinen Ausbilder nach dem passenden Remote-Repo.
 
 3. Öffne das Web-UI per Port-Forwarding unter `https://localhost:9443`:
 
@@ -109,13 +111,19 @@ Hinweis: Nutzt eure GitLab-Instanz ein Zertifikat der Firmen-CA, musst du die CA
 
    `path` zeigt auf den Ordner mit der `Chart.yaml`; `valueFiles` ist relativ zu diesem Ordner.
 
-2. Committe die Datei und wende sie **einmalig** an (in Modul 08 automatisierst du auch diesen Schritt):
+2. Committe die Datei und wende sie **einmalig** an (in Modul 09 automatisierst du auch diesen Schritt):
 
    ```bash
    kubectl apply -f gitops/cluster/argocd-apps/azubi-portal.yaml
    ```
 
 3. Die Application steht nun auf „OutOfSync“. Führe im UI einen **Sync** aus (oder `argocd app sync azubi-portal`) und prüfe die Ressourcen im Cluster.
+4. Prüfe, ob die `SealedSecret`-Dateien aus Modul 06 entschlüsselt wurden und das Passwort im Container ankommt:
+
+   ```bash
+   kubectl get sealedsecrets,secrets -n azubi-portal
+   kubectl exec -n azubi-portal deploy/azubi-portal -- env | grep PASSWORD
+   ```
 
 ### Aufgabe 4: GitOps-Flow erleben (Commit → Sync)
 
@@ -149,14 +157,14 @@ Hinweis: Nutzt eure GitLab-Instanz ein Zertifikat der Firmen-CA, musst du die CA
    ```
 
 4. Skaliere erneut manuell und beobachte, wie ArgoCD die Änderung nach kurzer Zeit zurücksetzt.
-5. Teste `prune`: Entferne in Git eine Ressource (z. B. setze `ingress.enabled: false`) und beobachte, dass ArgoCD den Ingress löscht.
+5. Teste `prune`: Entferne in Git eine Ressource (z. B. setze `ingress.enabled: false`) und beobachte, dass ArgoCD den Ingress löscht. Setze den Wert danach per Merge Request wieder auf `true` – in Modul 08 brauchst du den Ingress für den Lasttest.
 6. Notiere, welche Art von Änderungen du bei GitOps nie direkt im Cluster machen solltest.
 
 ### Aufgabe 6: Fehlerhaftes Release und Rollback per Git
 
 **Ziel:** Verstehen, dass ein Rollback bei GitOps ein Git-Revert ist.
 
-1. Setze in `values-lab.yaml` ein ungültiges Image-Tag und merge die Änderung.
+1. Setze in `values-lab.yaml` ein Image-Tag, das es im Artifactory nicht gibt, und merge die Änderung.
 2. Beobachte im UI den Health-Status „Degraded“/„Progressing“.
 3. Mache die Änderung mit `git revert <commit>` rückgängig, pushe und beobachte, wie ArgoCD den alten Zustand wiederherstellt.
 
@@ -164,8 +172,8 @@ Warum ist `helm rollback` hier keine gute Idee?
 
 ### Bonus-Aufgaben (für Fortgeschrittene)
 
-- **Chart aus dem Artifactory:** Lege eine zweite Application an, die ein OCI-Chart aus dem Artifactory nutzt und die Values aus Git holt ([Multiple Sources](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/)). Hinterlege dazu das OCI-Repo in ArgoCD als Helm-Repository mit „Enable OCI“.
-- Installiere den Monitoring-Stack aus Modul 07 als eigene ArgoCD-Application.
+- **Chart aus dem Artifactory:** Lege eine zweite Application an, die dein Chart `azubi-portal` in Version `0.3.1` aus dem OCI-Repo im Artifactory (Modul 04) nutzt und die Values aus Git holt ([Multiple Sources](https://argo-cd.readthedocs.io/en/stable/user-guide/multiple_sources/)). Hinterlege dazu das OCI-Repo in ArgoCD als Helm-Repository mit „Enable OCI“ und den Zugangsdaten eines technischen Benutzers.
+- Installiere den Monitoring-Stack aus Modul 08 als eigene ArgoCD-Application. Als `repoURL` dient das Helm-Repo im Artifactory (`https://<artifactory-host>/artifactory/api/helm/<helm-repo>`), dazu `chart` und eine feste `targetRevision`.
 - Lege ein eigenes `AppProject` `lab` an, das nur dein GitLab-Repo und die Namespaces `azubi-portal` und `monitoring` erlaubt.
 
 ## Du bist fertig, wenn …
@@ -174,6 +182,7 @@ Warum ist `helm rollback` hier keine gute Idee?
 - [ ] eine Änderung per Merge Request automatisch im Cluster ankommt
 - [ ] eine manuelle Änderung im Cluster von ArgoCD zurückgesetzt wird
 - [ ] du ein fehlerhaftes Release per `git revert` behoben hast
+- [ ] `PASSWORD` aus dem `SealedSecret` im Container ankommt
 
 ## Verständnisfragen
 
@@ -189,14 +198,16 @@ Warum ist `helm rollback` hier keine gute Idee?
 - `valueFiles` ist relativ zum `path`. Ein Tippfehler im Dateinamen führt zu einem Fehler beim Rendern.
 - Die Application muss im Namespace `argocd` liegen, sonst sieht der Controller sie nicht.
 - Port-Forward bricht ab: einfach neu starten. Port 8080 ist vom kind-Cluster belegt, nutze 9443.
+- `SealedSecret` wird nicht entschlüsselt (`kubectl describe sealedsecret -n azubi-portal`): Existiert schon ein gleichnamiges, von Hand angelegtes Secret, lässt der Controller es in Ruhe. Lösche das alte Secret einmalig.
+- Pods hängen mit `ImagePullBackOff` und `401`: Das `SealedSecret` für `artifactory-pull` fehlt im Chart oder wurde für einen anderen Namespace verschlüsselt.
 
 ## Aufräumen
 
-ArgoCD und `azubi-portal` bleiben für Modul 07 und 08 installiert.
+ArgoCD und `azubi-portal` bleiben für Modul 08 und 09 installiert.
 
 ## Weiterführend
 
-- [App-of-Apps-Muster](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/) (wird in Modul 08 genutzt)
+- [App-of-Apps-Muster](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/) (wird in Modul 09 genutzt)
 - [Automated Sync Policy](https://argo-cd.readthedocs.io/en/stable/user-guide/auto_sync/)
 
-Eine Musterlösung findest du unter [solutions/modul-06](./solutions/modul-06/).
+Eine Musterlösung findest du unter [solutions/modul-07](./solutions/modul-07/).

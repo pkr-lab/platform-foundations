@@ -1,0 +1,9 @@
+FROM <artifactory-host>/<docker-remote-repo>/alpine:3.20.3 AS build
+ARG APP_VERSION=dev
+WORKDIR /site
+COPY index.html .
+RUN sed -i "s/__VERSION__/${APP_VERSION}/" index.html
+
+FROM <artifactory-host>/<docker-remote-repo>/nginxinc/nginx-unprivileged:1.28.0
+COPY --from=build /site/index.html /usr/share/nginx/html/index.html
+EXPOSE 8080

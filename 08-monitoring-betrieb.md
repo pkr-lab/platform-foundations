@@ -1,4 +1,4 @@
-# Modul 07 – Monitoring & Betrieb
+# Modul 08 – Monitoring & Betrieb
 
 ## Kurzbeschreibung
 
@@ -14,7 +14,7 @@ In diesem Modul lernst du, wie du den Zustand deines Clusters und deiner Anwendu
 
 ## Voraussetzungen
 
-- Modul 01–06 abgeschlossen
+- Modul 01–07 abgeschlossen
 - `azubi-portal` wird von ArgoCD verwaltet
 
 ## Theorie (Kurzüberblick)
@@ -53,9 +53,9 @@ Das Chart [`kube-prometheus-stack`](https://github.com/prometheus-community/helm
 2. Installiere den [Metrics Server](https://github.com/kubernetes-sigs/metrics-server). Im kind-Cluster haben die Kubelets keine offiziell signierten Zertifikate, deshalb braucht er den Parameter `--kubelet-insecure-tls` (nur im Lab!):
 
    ```bash
-   helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
    helm repo update
-   helm install metrics-server metrics-server/metrics-server -n kube-system \
+   helm search repo artifactory/metrics-server --versions | head -n 5
+   helm install metrics-server artifactory/metrics-server --version <chart-version> -n kube-system \
      --set 'args={--kubelet-insecure-tls}'
    ```
 
@@ -70,12 +70,11 @@ Das Chart [`kube-prometheus-stack`](https://github.com/prometheus-community/helm
 
 **Ziel:** Einen Monitoring-Stack bereitstellen.
 
-1. Installiere `kube-prometheus-stack` in den Namespace `monitoring`:
+1. Installiere `kube-prometheus-stack` aus dem Artifactory in den Namespace `monitoring`. Das Chart bringt Images von quay.io, registry.k8s.io und Docker Hub mit – alle kommen über den Registry-Mirror:
 
    ```bash
-   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-   helm repo update
-   helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace
+   helm search repo artifactory/kube-prometheus-stack --versions | head -n 5
+   helm install monitoring artifactory/kube-prometheus-stack --version <chart-version> -n monitoring --create-namespace
    kubectl get pods -n monitoring -w
    ```
 
@@ -88,7 +87,7 @@ Das Chart [`kube-prometheus-stack`](https://github.com/prometheus-community/helm
 
 3. Sieh dir die mitgelieferten Dashboards an, z. B. „Kubernetes / Compute Resources / Namespace (Pods)“.
 
-Tipp: Im Bonus von Modul 06 hast du gesehen, dass du den Stack auch als ArgoCD-Application installieren kannst – das ist der „GitOps-Weg“.
+Tipp: Im Bonus von Modul 07 hast du gesehen, dass du den Stack auch als ArgoCD-Application installieren kannst – das ist der „GitOps-Weg“.
 
 ### Aufgabe 3: Dashboard für `azubi-portal` erstellen
 
@@ -114,7 +113,18 @@ Tipp: Im Bonus von Modul 06 hast du gesehen, dass du den Stack auch als ArgoCD-A
 
 **Ziel:** Verstehen, wie sich Limits auswirken.
 
-1. Setze in `values-lab.yaml` sehr niedrige Limits (z. B. `cpu: 5m`, `memory: 8Mi`) und merge die Änderung per Merge Request.
+1. Setze in `values-lab.yaml` sehr niedrige Limits und merge die Änderung per Merge Request. Die Requests musst du mit absenken: Kubernetes lehnt ein Deployment ab, dessen Requests größer als die Limits sind.
+
+   ```yaml
+   resources:
+     requests:
+       cpu: 5m
+       memory: 4Mi
+     limits:
+       cpu: 5m
+       memory: 8Mi
+   ```
+
 2. Beobachte mit `kubectl get pods -w`, `kubectl describe pod` und in Grafana, was passiert. Achte auf `OOMKilled`, `CrashLoopBackOff` und CPU-Throttling.
 3. Dokumentiere, ab wann das Verhalten problematisch wird und wie du gegensteuern würdest. Setze sinnvolle Werte und merge erneut.
 
@@ -124,9 +134,9 @@ Tipp: Im Bonus von Modul 06 hast du gesehen, dass du den Stack auch als ArgoCD-A
 
 Führe nacheinander je einen der folgenden Fehler per Git ein, finde die Ursache **nur mit Beobachtungs-Werkzeugen** und behebe ihn per `git revert`:
 
-1. Ein ungültiges Image-Tag → welcher Status, welches Event?
-2. `containerPort: 8080` mit dem normalen Nginx-Image → was melden die Probes? Was zeigt `kubectl get endpoints -n azubi-portal`?
-3. Ein `imagePullSecrets`-Eintrag auf ein nicht existierendes Secret bei einem Image aus dem Artifactory → welche Meldung erscheint?
+1. Ein Image-Tag, das es im Artifactory nicht gibt → welcher Status, welches Event?
+2. `containerPort: 80`, obwohl dein Image auf 8080 lauscht → was melden die Probes? Was zeigt `kubectl get endpoints -n azubi-portal`?
+3. Ein `imagePullSecrets`-Eintrag auf ein nicht existierendes Secret, z. B. `artifactory-pull-gibtesnicht` → welche Warnung erscheint in den Events, und hängt der Pull davon ab, ob euer Artifactory eine Anmeldung verlangt?
 
 Notiere zu jedem Fehler: Symptom, verwendeter Befehl, Ursache, Lösung.
 
@@ -146,6 +156,12 @@ kubectl port-forward -n kube-system svc/headlamp 9005:80
 
 Öffne `http://localhost:9005`, melde dich mit dem Token an und suche dein `azubi-portal` in der Oberfläche. Vergleiche: Welche Informationen findest du schneller in Headlamp, welche schneller mit `kubectl`?
 
+### Bonus-Aufgaben (für Fortgeschrittene)
+
+- **Alerts:** Lege eine `PrometheusRule` mit zwei bis drei Alerts für `azubi-portal` an (Label `release: monitoring`) und prüfe in der Prometheus-Oberfläche unter „Alerts“, ob sie geladen wurden. Löse einen Alert absichtlich aus.
+- **Autoscaling:** Lege einen `HorizontalPodAutoscaler` für `azubi-portal` an (z. B. 2–5 Replikas bei 50 % CPU) und erzeuge Last. Warum funktioniert das erst mit dem Metrics Server, und warum muss `replicaCount` dafür aus der GitOps-Steuerung herausgenommen werden?
+- **Dashboard per GitOps:** Lege dein Dashboard-JSON in eine ConfigMap im Namespace `monitoring` mit dem Label `grafana_dashboard: "1"`. Der Grafana-Sidecar aus `kube-prometheus-stack` lädt es dann automatisch – ohne Klick im UI.
+
 ## Du bist fertig, wenn …
 
 - [ ] `kubectl top pods -A` Werte anzeigt
@@ -159,6 +175,14 @@ kubectl port-forward -n kube-system svc/headlamp 9005:80
 2. Was passiert, wenn ein Container sein Memory-Limit überschreitet? Und beim CPU-Limit?
 3. Warum gehört `--kubelet-insecure-tls` nicht in einen Produktiv-Cluster?
 4. Welche zwei bis drei Alerts wären für `azubi-portal` in einem echten System sinnvoll?
+
+## Häufige Stolperfallen & Tipps
+
+- `kubectl top` meldet `Metrics API not available`: Der Metrics Server braucht nach dem Start etwa eine Minute. Fehlt `--kubelet-insecure-tls`, bleibt er dauerhaft `0/1 READY`.
+- Direkt nach der Installation feuern Alerts wie `KubeControllerManagerDown`, `KubeSchedulerDown` oder `etcdInsufficientMembers`: In kind lauschen diese Komponenten nur auf `127.0.0.1`, Prometheus erreicht sie nicht. Im Lab ist das harmlos.
+- Pods aus `kube-prometheus-stack` hängen in `ImagePullBackOff`: Die Events zeigen, welche Registry fehlt. Prüfe den Registry-Mirror (Modul 01, Aufgabe 3).
+- WSL wird langsam oder Pods werden `Evicted`: Der Monitoring-Stack braucht mehrere GB RAM. Erhöhe in Windows in `%UserProfile%\.wslconfig` unter `[wsl2]` den Wert `memory` (z. B. `memory=8GB`) und starte WSL neu.
+- Das Deployment wird mit `must be less than or equal to memory limit` abgelehnt: Requests und Limits passen nicht zusammen (Aufgabe 4).
 
 ## Aufräumen
 
@@ -175,4 +199,4 @@ kubectl delete -f kubernetes-headlamp.yaml
 - [Alertmanager](https://prometheus.io/docs/alerting/latest/alertmanager/) und `PrometheusRule`-Ressourcen
 - [PromQL-Grundlagen](https://prometheus.io/docs/prometheus/latest/querying/basics/)
 
-Eine Musterlösung findest du unter [solutions/modul-07](./solutions/modul-07/).
+Eine Musterlösung findest du unter [solutions/modul-08](./solutions/modul-08/).

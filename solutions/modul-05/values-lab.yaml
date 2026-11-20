@@ -1,0 +1,9 @@
+replicaCount: 2
+image:
+  repository: <artifactory-host>/<docker-local-repo>/azubi-portal
+  tag: "1.0.1"
+htmlFromConfigMap: false
+imagePullSecrets:
+  - name: artifactory-pull
+ingress:
+  enabled: true

@@ -15,7 +15,7 @@ In diesem Modul wandelst du manuelle YAML-Deployments in ein wiederverwendbares 
 ## Voraussetzungen
 
 - Modul 01 und 02 abgeschlossen
-- Traefik ist als Ingress-Controller installiert (Modul 02, Aufgabe 6)
+- Traefik ist als Ingress-Controller installiert und das Helm-Repo `artifactory` ist angelegt (Modul 02, Aufgabe 6)
 
 ## Theorie (Kurzüberblick)
 
@@ -48,16 +48,15 @@ Das wird in Modul 04 wichtig: Eine Registry wie Artifactory speichert jede Chart
 **Ziel:** Helm im Lab nutzen und ein erstes fremdes Chart ausrollen.
 
 1. Prüfe mit `helm version`, ob Helm installiert ist (spätestens in Modul 02 für Traefik passiert). Sonst installiere es.
-2. Füge das Helm-Repository von [podinfo](https://github.com/stefanprodan/podinfo) hinzu – eine kleine Demo-App, die extra für Kubernetes-Tests gebaut wurde.
-3. Sieh dir die verfügbaren Werte des Charts an, bevor du es installierst.
+2. Suche im Helm-Repo `artifactory` das Chart [podinfo](https://github.com/stefanprodan/podinfo) – eine kleine Demo-App, die extra für Kubernetes-Tests gebaut wurde – und wähle eine feste Chart-Version.
+3. Sieh dir die verfügbaren Werte des Charts an, bevor du es installierst. Von welcher Registry kommt das Image laut `values.yaml`, und warum funktioniert der Pull bei uns trotzdem?
 4. Installiere das Chart in einen eigenen Namespace und prüfe, was installiert wurde.
 
 ```bash
-helm repo add podinfo https://stefanprodan.github.io/podinfo
 helm repo update
-helm search repo podinfo
-helm show values podinfo/podinfo | less
-helm install demo podinfo/podinfo -n demo --create-namespace --set replicaCount=2
+helm search repo artifactory/podinfo --versions | head -n 5
+helm show values artifactory/podinfo --version <chart-version> | less
+helm install demo artifactory/podinfo --version <chart-version> -n demo --create-namespace --set replicaCount=2
 helm list -n demo
 kubectl get all -n demo
 kubectl port-forward svc/demo-podinfo -n demo 9080:9898
@@ -73,7 +72,7 @@ Das Referenz-Chart liegt unter [`examples/azubi-portal-chart/`](./examples/azubi
 
 1. Sieh dir `Chart.yaml`, `values.yaml` und die Dateien in `templates/` an.
 2. Notiere dir:
-   - welche Werte in `values.yaml` definiert sind (`replicaCount`, `image.*`, `containerPort`, `service.*`, `welcomeMessage`, `resources`, `ingress.*`)
+   - welche Werte in `values.yaml` definiert sind (`replicaCount`, `image.*`, `containerPort`, `podSecurityContext`, `securityContext`, `service.*`, `welcomeMessage`, `htmlFromConfigMap`, `existingSecret`, `resources`, `ingress.*`)
    - an welchen Stellen diese Werte in den Templates verwendet werden
    - was `include "azubi-portal.labels"` in `_helpers.tpl` macht
 3. Rendere das Chart lokal, ohne es zu installieren, und vergleiche das Ergebnis mit deinem YAML aus Modul 02:
@@ -109,6 +108,8 @@ Das Referenz-Chart liegt unter [`examples/azubi-portal-chart/`](./examples/azubi
    ```bash
    kubectl port-forward svc/azubi-portal -n azubi-portal 9080:80
    ```
+
+4. Im Chart steht als Image `docker.io/nginxinc/nginx-unprivileged`. Woher kommt es tatsächlich? Prüfe mit `kubectl describe pod -n azubi-portal -l app=azubi-portal` und erinnere dich an den Registry-Mirror aus Modul 01. In Modul 04 trägst du stattdessen die vollständige Artifactory-Adresse ein.
 
 ### Aufgabe 4: Werte anpassen und Rollback testen
 
@@ -151,7 +152,7 @@ Das Referenz-Chart liegt unter [`examples/azubi-portal-chart/`](./examples/azubi
 
 **Ziel:** Aus dem Chart-Ordner ein versioniertes Artefakt machen.
 
-1. Erhöhe in `Chart.yaml` die `version` (z. B. auf `0.2.1`).
+1. Erhöhe in `Chart.yaml` die `version` von `0.3.0` auf `0.3.1`.
 2. Baue das Paket:
 
    ```bash
@@ -161,12 +162,12 @@ Das Referenz-Chart liegt unter [`examples/azubi-portal-chart/`](./examples/azubi
 
 3. Installiere testweise direkt aus der `.tgz`-Datei in einen anderen Namespace und lösche das Release danach wieder.
 
-Dieses Paket lädst du in Modul 04 in eine Registry hoch.
+Dieses Paket lädst du in Modul 04 ins Artifactory hoch.
 
 ### Bonus-Aufgaben (für Fortgeschrittene)
 
 - Füge einen neuen Wert hinzu (z. B. `podAnnotations`) und nutze ihn im Deployment-Template.
-- Stelle das Release per `values-lab.yaml` auf das gehärtete Image `nginxinc/nginx-unprivileged` aus Modul 02 um (Tipp: Wert `containerPort`) und ergänze im Template einen `securityContext`.
+- Setze am Namespace `azubi-portal` das Label `pod-security.kubernetes.io/enforce=restricted` und führe ein `helm upgrade` durch. Welche Werte in `values.yaml` sorgen dafür, dass das Chart den Standard `restricted` erfüllt? Was passiert, wenn du `podSecurityContext` per `--set podSecurityContext=null` entfernst?
 - Erstelle mit `helm create testchart` ein neues Chart und vergleiche es mit `azubi-portal`. Welche Dateien würdest du entfernen?
 
 ## Du bist fertig, wenn …
@@ -174,7 +175,7 @@ Dieses Paket lädst du in Modul 04 in eine Registry hoch.
 - [ ] `helm list -A` die Releases `demo` und `azubi-portal` zeigt
 - [ ] `azubi-portal` mit deiner eigenen `values-lab.yaml` läuft und die neue Welcome-Message zeigt
 - [ ] du ein kaputtes Release per `helm rollback` repariert hast
-- [ ] eine Datei `azubi-portal-<version>.tgz` existiert
+- [ ] eine Datei `azubi-portal-0.3.1.tgz` existiert
 
 ## Verständnisfragen
 
@@ -186,6 +187,8 @@ Dieses Paket lädst du in Modul 04 in eine Registry hoch.
 ## Häufige Stolperfallen & Tipps
 
 - `helm install` scheitert, weil das Release schon existiert: nutze `helm upgrade --install`.
+- `helm install` ohne `--version` nimmt die neueste Chart-Version. Gib sie immer fest an.
+- `Error: … not found` bei `artifactory/<chart>`: `helm repo update` vergessen oder das Chart ist nicht im virtuellen Repo `<helm-repo>` enthalten – frag deinen Ausbilder.
 - Template-Fehler erkennst du mit `helm lint` und `helm template . --debug`.
 - Wenn ein Upgrade fehlschlägt, helfen `helm status`, `kubectl describe` und `kubectl logs`.
 - Halte dein Chart schlank: entferne nicht benötigte Dateien, statt alles aus einem `helm create`-Gerüst mitzuschleppen.
@@ -197,7 +200,7 @@ helm uninstall demo -n demo
 kubectl delete namespace demo
 ```
 
-Das Release `azubi-portal` kannst du stehen lassen. Spätestens in Modul 06 übernimmt ArgoCD – dann deinstallierst du es dort.
+Das Release `azubi-portal` kannst du stehen lassen. Spätestens in Modul 07 übernimmt ArgoCD – dann deinstallierst du es dort.
 
 ## Weiterführend
 

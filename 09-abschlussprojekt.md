@@ -1,4 +1,4 @@
-# Modul 08 – Abschlussprojekt (GitOps-Fokus)
+# Modul 09 – Abschlussprojekt (GitOps-Fokus)
 
 ## Kurzbeschreibung
 
@@ -8,13 +8,13 @@ Im Abschlussprojekt setzt du das Gelernte aus den vorherigen Modulen ein, um ein
 
 - ein kleines Anwendungsszenario selbst planen
 - die Anwendung als Helm-Chart modellieren oder ein vorhandenes Chart sauber anpassen
-- Images über JFrog Artifactory beziehen (Modul 04)
+- Images über JFrog Artifactory beziehen (Modul 04) oder selbst bauen und dort ablegen (Modul 05)
 - den GitOps-Flow mit GitLab und ArgoCD vollständig umsetzen – inklusive Bootstrap per App-of-Apps
 - die wichtigsten Schritte dokumentieren und erklären können
 
 ## Voraussetzungen
 
-- Modul 01–07 abgeschlossen
+- Modul 01–08 abgeschlossen
 
 ## Projektbeschreibung
 
@@ -22,7 +22,8 @@ Wähle eine einfache Anwendung (z. B. statische Website, kleiner API-Service, [p
 
 Anforderungen:
 
-- Das Container-Image kommt aus JFrog Artifactory (Modul 04) und hat einen **festen Versions-Tag**.
+- Das Container-Image kommt aus JFrog Artifactory und hat einen **festen Versions-Tag**. Es ist entweder ein vorhandenes Image (Modul 04) oder ein selbst gebautes aus `<docker-local-repo>` (Modul 05).
+- Alle Helm-Charts kommen aus dem Artifactory, mit fester Version.
 - Die Konfiguration liegt in deinem GitOps-Repo, Secrets nur verschlüsselt (Sealed Secrets) oder gar nicht.
 - Das Deployment erfolgt ausschließlich über ArgoCD. Nach dem einmaligen Bootstrap wird **kein** `kubectl apply` mehr ausgeführt (außer `get`/`describe`/`logs` zur Analyse).
 - Die App hat Probes, Ressourcen-Requests/-Limits und läuft nicht als root.
@@ -37,7 +38,7 @@ Anforderungen:
 
 ### Phase 2: Image und Helm-Chart
 
-1. Suche das benötigte Image in Artifactory über **Packages** und notiere Adresse und Tag (Modul 04).
+1. Suche das benötigte Image in Artifactory über **Packages** und notiere Adresse und Tag (Modul 04) – oder baue es mit einem `Containerfile`, dessen Basis-Image aus dem Artifactory kommt, und pushe es nach `<docker-local-repo>` (Modul 05).
 2. Erstelle ein Helm-Chart oder passe ein bestehendes an.
 3. Lege eine `values-lab.yaml` an.
 4. Teste das Chart lokal **ohne** es zu installieren:
@@ -52,7 +53,7 @@ Anforderungen:
 Statt jede Application einzeln per `kubectl apply` anzulegen, nutzt du das [App-of-Apps-Muster](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/): eine **Root-Application** zeigt auf den Ordner `gitops/cluster/argocd-apps/` und legt alle dort liegenden Applications automatisch an.
 
 1. Lege dein Chart unter `gitops/apps/<deine-app>/` ab.
-2. Lege die Application für deine App unter `gitops/cluster/argocd-apps/<deine-app>.yaml` ab (Aufbau wie in Modul 06).
+2. Lege die Application für deine App unter `gitops/cluster/argocd-apps/<deine-app>.yaml` ab (Aufbau wie in Modul 07).
 3. Lege die Root-Application `gitops/cluster/root.yaml` an:
 
    ```yaml
@@ -92,7 +93,7 @@ Statt jede Application einzeln per `kubectl apply` anzulegen, nutzt du das [App-
 
 ### Phase 5: Betrieb
 
-1. Ergänze dein Grafana-Dashboard aus Modul 07 um deine neue App.
+1. Ergänze dein Grafana-Dashboard aus Modul 08 um deine neue App.
 2. Prüfe mit `kubectl top pods`, ob deine Requests/Limits realistisch sind.
 
 ### Phase 6: Dokumentation & Reflexion
@@ -106,13 +107,28 @@ Statt jede Application einzeln per `kubectl apply` anzulegen, nutzt du das [App-
 
 ## Bewertungs-Checkliste
 
-- [ ] Image liegt mit festem Tag in einer Registry, kein `latest`
+- [ ] Image liegt mit festem Tag im Artifactory, kein `latest` oder `stable`
 - [ ] Chart besteht `helm lint`
 - [ ] App wird über die Root-Application (App-of-Apps) verwaltet
-- [ ] keine Klartext-Secrets im Repo
+- [ ] keine Klartext-Secrets im Repo, Pull-Secret und App-Secrets nur als `SealedSecret`
 - [ ] Probes, Requests/Limits und `runAsNonRoot` sind gesetzt
 - [ ] mindestens eine Änderung und ein Rollback sind über Merge Requests in der Git-Historie nachvollziehbar
 - [ ] Bericht und Vorstellung erklären den Ablauf verständlich
+
+## Häufige Stolperfallen & Tipps
+
+- Die neue App erscheint nicht in ArgoCD: Liegt die Application-Datei wirklich in `gitops/cluster/argocd-apps/` auf `main`? Die Root-Application sieht nur diesen Ordner.
+- `ImagePullBackOff` bei der neuen App: Fehlt im neuen Namespace das `SealedSecret` für `artifactory-pull`? Ein Pull-Secret gilt nur in seinem Namespace.
+- Pods werden von Pod Security abgelehnt oder starten nicht: Hat dein Image eine numerische User-ID, und lauscht die App auf einem Port über 1024?
+- Plane die Vorstellung mit einer Änderung, die man sofort im Browser sieht (z. B. neue Image-Version mit geänderter Startseite).
+
+## Aufräumen
+
+Nach der Vorstellung kannst du die Lab-Umgebung entfernen. Die Konfiguration bleibt in deinem GitOps-Repo, die Images und Charts im Artifactory.
+
+```bash
+kind delete cluster --name lab
+```
 
 ## Weiterführend
 
@@ -120,4 +136,4 @@ Statt jede Application einzeln per `kubectl apply` anzulegen, nutzt du das [App-
 - Wie würde eine GitLab-CI-Pipeline aussehen, die bei einem neuen Tag das Image baut, ins Artifactory pusht und automatisch einen Merge Request mit dem neuen `image.tag` im GitOps-Repo erstellt?
 - Welche Teile des Labs würdest du produktionsnäher gestalten (Security, Alerting, Backups, mehrere Umgebungen)?
 
-Eine Beispiel-Root-Application findest du unter [solutions/modul-08](./solutions/modul-08/).
+Eine Beispiel-Root-Application findest du unter [solutions/modul-09](./solutions/modul-09/).

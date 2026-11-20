@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: docker.io/library/nginx:stable
+          image: <artifactory-host>/<docker-remote-repo>/nginx:1.28.0
           ports:
             - containerPort: 80
 ---

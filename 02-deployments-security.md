@@ -15,7 +15,8 @@ In diesem Modul vertiefst du deine Kubernetes-Grundlagen. Du beschreibst Anwendu
 
 ## Voraussetzungen
 
-- Modul 01 abgeschlossen (kind-Cluster läuft, `kubectl` funktioniert)
+- Modul 01 abgeschlossen (kind-Cluster läuft, `kubectl` funktioniert, Registry-Mirror ist eingerichtet)
+- die Artifactory-Adressen der verwendeten Images (siehe [docs/Artifactory.md](./docs/Artifactory.md))
 
 ## Theorie (Kurzüberblick)
 
@@ -29,7 +30,7 @@ Ein [Service](https://kubernetes.io/docs/concepts/services-networking/service/) 
 
 [ConfigMaps](https://kubernetes.io/docs/concepts/configuration/configmap/) speichern nicht-sensible Konfiguration (z. B. URLs, Feature-Flags). [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/) sind für sensible Daten wie Passwörter oder Tokens gedacht. Beide können als Umgebungsvariablen oder als Dateien in Containern zur Verfügung gestellt werden.
 
-> **Wichtig:** Die Werte in einem Secret sind nur **base64-kodiert, nicht verschlüsselt**. Jeder, der das Secret lesen darf, kann es mit `base64 -d` zurückwandeln. Schutz entsteht erst durch RBAC (wer darf Secrets lesen?) und – außerhalb des Clusters – durch Werkzeuge wie Sealed Secrets oder SOPS (siehe [Modul 05](./05-gitlab-gitops-struktur.md)). Secrets gehören **nie im Klartext** in ein Git-Repository.
+> **Wichtig:** Die Werte in einem Secret sind nur **base64-kodiert, nicht verschlüsselt**. Jeder, der das Secret lesen darf, kann es mit `base64 -d` zurückwandeln. Schutz entsteht erst durch RBAC (wer darf Secrets lesen?) und – außerhalb des Clusters – durch Werkzeuge wie Sealed Secrets oder SOPS (siehe [Modul 06](./06-gitlab-gitops-struktur.md)). Secrets gehören **nie im Klartext** in ein Git-Repository.
 
 ### RBAC (Role-Based Access Control)
 
@@ -91,7 +92,7 @@ Ein [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) 
        spec:
          containers:
            - name: azubi-portal
-             image: docker.io/library/nginx:stable
+             image: <artifactory-host>/<docker-remote-repo>/nginx:1.28.0
              ports:
                - containerPort: 80
    ---
@@ -222,7 +223,7 @@ roleRef:
 
 2. Wende dein Deployment erneut an (`kubectl apply -f azubi-portal.yaml`) und lies die Warnungen. Welche Punkte bemängelt Kubernetes?
 3. Ergänze im Container einen `securityContext` mit `runAsNonRoot: true` und beobachte mit `kubectl get pods` und `kubectl describe pod`, was passiert. Warum startet das offizielle Nginx-Image nicht mehr?
-4. Wechsle auf das Image `docker.io/nginxinc/nginx-unprivileged:stable`. Es läuft als normaler Benutzer und lauscht auf Port **8080**. Passe `containerPort` und `targetPort` im Service an.
+4. Wechsle auf das Image `nginxinc/nginx-unprivileged:1.28.0` aus dem Artifactory (`<artifactory-host>/<docker-remote-repo>/nginxinc/nginx-unprivileged:1.28.0`). Es läuft als normaler Benutzer mit der User-ID `101` und lauscht auf Port **8080**. Passe `containerPort` und `targetPort` im Service an.
 5. Ergänze den `securityContext`, bis keine Warnungen mehr erscheinen:
 
    ```yaml
@@ -241,15 +242,21 @@ roleRef:
 
 **Ziel:** Verstehen, wie NetworkPolicies den Traffic beeinflussen.
 
-1. Lege einen Namespace `np-test` an und deploye dort eine einfache Web-App (Deployment + Service `webapp`) mit dem Label `app=webapp`.
+1. Lege einen Namespace `np-test` an und deploye dort eine einfache Web-App (Deployment + Service `webapp`, Image `nginx:1.28.0` aus dem Artifactory) mit dem Label `app=webapp`.
 2. Starte zwei Test-Pods, einen mit Label `role=client` und einen ohne:
 
    ```bash
-   kubectl run client -n np-test --labels=role=client --image=docker.io/curlimages/curl:8.10.1 --command -- sleep 3600
-   kubectl run fremd -n np-test --image=docker.io/curlimages/curl:8.10.1 --command -- sleep 3600
+   kubectl run client -n np-test --labels=role=client --image=<artifactory-host>/<docker-remote-repo>/curlimages/curl:8.10.1 --command -- sleep 3600
+   kubectl run fremd -n np-test --image=<artifactory-host>/<docker-remote-repo>/curlimages/curl:8.10.1 --command -- sleep 3600
    ```
 
-3. Teste vor der Policy aus beiden Pods den Zugriff: `kubectl exec -n np-test client -- curl -s -m 3 webapp`.
+3. Teste vor der Policy aus beiden Pods den Zugriff:
+
+   ```bash
+   kubectl exec -n np-test client -- curl -s -m 3 webapp
+   kubectl exec -n np-test fremd -- curl -s -m 3 webapp
+   ```
+
 4. Wende die folgende NetworkPolicy an und teste erneut. Welcher Pod kommt noch durch?
 
    ```yaml
@@ -277,19 +284,25 @@ roleRef:
 
 **Ziel:** Die App ohne Port-Forwarding unter `http://azubi-portal.localhost:8080` aufrufen.
 
-1. Installiere Traefik als Ingress-Controller. Die Werte sorgen dafür, dass Traefik auf dem Node mit `ingress-ready=true` direkt die Ports 80/443 belegt:
+1. Füge das Helm-Repo aus dem Artifactory hinzu. Es bündelt alle öffentlichen Charts, die du im Lab brauchst, und heißt lokal `artifactory` (siehe [docs/Artifactory.md](./docs/Artifactory.md#helm-charts-aus-dem-artifactory)):
 
    ```bash
-   helm repo add traefik https://traefik.github.io/charts
+   helm repo add artifactory https://<artifactory-host>/artifactory/api/helm/<helm-repo>
    helm repo update
-   helm install traefik traefik/traefik -n traefik --create-namespace \
+   helm search repo artifactory/traefik --versions | head -n 5
+   ```
+
+2. Installiere Traefik als Ingress-Controller mit einer festen Chart-Version. Die Werte sorgen dafür, dass Traefik auf dem Node mit `ingress-ready=true` direkt die Ports 80/443 belegt. Das Traefik-Image steht im Chart mit seiner Docker-Hub-Adresse und kommt über den Registry-Mirror aus Modul 01 trotzdem aus dem Artifactory:
+
+   ```bash
+   helm install traefik artifactory/traefik --version <chart-version> -n traefik --create-namespace \
      -f solutions/modul-02/traefik-values.yaml
    kubectl get pods -n traefik
    ```
 
    Sieh dir die Datei [solutions/modul-02/traefik-values.yaml](./solutions/modul-02/traefik-values.yaml) an und erkläre, was die einzelnen Werte bewirken.
 
-2. Lege einen Ingress für `azubi-portal` an:
+3. Lege einen Ingress für `azubi-portal` an:
 
    ```yaml
    apiVersion: networking.k8s.io/v1
@@ -312,7 +325,7 @@ roleRef:
                      number: 80
    ```
 
-3. Öffne `http://azubi-portal.localhost:8080` im Browser oder teste mit `curl -H 'Host: azubi-portal.localhost' http://localhost:8080`.
+4. Öffne `http://azubi-portal.localhost:8080` im Browser oder teste mit `curl -H 'Host: azubi-portal.localhost' http://localhost:8080`.
 
 Hinweis: Alle Namen unter `*.localhost` zeigen in modernen Browsern automatisch auf `127.0.0.1`, ein Eintrag in der `hosts`-Datei ist nicht nötig.
 
@@ -344,6 +357,8 @@ Hinweis: Alle Namen unter `*.localhost` zeigen in modernen Browsern automatisch 
 - `kubectl apply` schlägt mit YAML-Fehlern fehl: prüfe Einrückungen und Doppelpunkt-Syntax sehr genau.
 - Ressourcen landen im falschen Namespace: kontrolliere `metadata.namespace` oder den Parameter `-n`.
 - Pods starten nicht: `kubectl describe pod` (Events, z. B. `ImagePullBackOff`, `CreateContainerConfigError`) und `kubectl logs` helfen.
+- `ImagePullBackOff`: Stimmt die Artifactory-Adresse? Kopiere sie aus **Packages**. Bei `401` braucht der Cluster ein Pull-Secret (Modul 04).
+- `helm install` ohne `--version` installiert die neueste Chart-Version – dein Lab ist dann nicht mehr reproduzierbar. Notiere dir die Version.
 - Nach dem Wechsel auf `nginx-unprivileged` ist die Seite nicht erreichbar: `targetPort` im Service muss auf `8080` zeigen.
 - Ingress liefert `404`: stimmt der Host-Name im Ingress mit dem im Browser überein? Stimmt `ingressClassName`?
 
